@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:beans="http://www.springframework.org/schema/beans"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/security 
+        http://www.springframework.org/schema/security/spring-security-4.2.xsd
+        http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans-4.2.xsd">
+
+	<http pattern="/*/**" create-session="stateless"
+		disable-url-rewriting="true" auto-config="false" use-expressions="true"
+		authentication-manager-ref="authenticationManager">
+		<custom-filter ref="loginFilters" position="FORM_LOGIN_FILTER" />
+		<custom-filter ref="logoutFilter" position="LOGOUT_FILTER"/>
+		<custom-filter ref="jwtAuthenticationFilter" before="BASIC_AUTH_FILTER" />
+		<http-basic entry-point-ref="authenticationEntryPoint" />
+		
+		<intercept-url pattern="/*" access="isAuthenticated()" />
+		<intercept-url pattern="/*/**" access="isAuthenticated()" />
+		<intercept-url pattern="/*/*/**" access="isAuthenticated()" />
+		
+		<csrf disabled="true" />
+	</http>
+
+	<authentication-manager alias="authenticationManager">
+		<!-- JWT authentication -->
+		<authentication-provider ref="jwtAuthenticationProvider" />
+		
+		<!-- Database authentication -->
+		<authentication-provider ref="daoAuthenticationProvider" />
+	</authentication-manager>
+
+	<beans:bean id="authenticationEntryPoint"
+		class="com.kms.skeleton.security.DefaultAuthenticationEntryPoint" />
+
+	<beans:bean id="daoAuthenticationProvider"
+		class="com.kms.skeleton.security.provider.UsernamePasswordAuthenticationProvider">
+		<beans:property name="userDetailsService" ref="databaseUserDetailsService" />
+		<beans:property name="passwordEncoder" ref="passwordEncoder" />
+		<beans:property name="userCache" ref="authenticatedUserCache" />
+	</beans:bean>
+	
+	<beans:bean id="jwtAuthenticationProvider"
+		class="com.kms.skeleton.security.provider.JWTAuthenticationProvider">
+		<beans:property name="userCache" ref="authenticatedUserCache" />
+	</beans:bean>
+
+	<beans:bean id="databaseUserDetailsService"
+		class="com.kms.skeleton.security.service.DatabaseUserDetailsService" />
+
+	<!-- LOGIN FILTERS -->
+	<beans:bean id="loginFilters"
+		class="org.springframework.web.filter.CompositeFilter">
+		<beans:property name="filters">
+			<beans:list>
+				<beans:ref bean="usernamePasswordLoginFilter" />
+			</beans:list>
+		</beans:property>
+	</beans:bean>
+	<beans:bean id="usernamePasswordLoginFilter"
+		class="com.kms.skeleton.security.filter.UsernamePasswordAuthenticationFilter">
+		<beans:property name="authenticationManager" ref="authenticationManager" />
+		<beans:property name="authenticationSuccessHandler"
+			ref="usernamePasswordLoginSuccessHandler" />
+		<beans:property name="authenticationFailureHandler"
+			ref="usernamePasswordLoginFailureHandler" />
+		<beans:property name="sessionAuthenticationStrategy"
+			ref="sessionAuthenticationStrategy" />
+		<beans:constructor-arg name="defaultFilterProcessesUrl"
+			value="/login" />
+	</beans:bean>
+
+	<beans:bean id="usernamePasswordLoginSuccessHandler"
+		class="com.kms.skeleton.security.handler.UsernamePasswordLoginSuccessHandler" >
+	</beans:bean>
+	<beans:bean id="usernamePasswordLoginFailureHandler"
+		class="com.kms.skeleton.security.handler.UsernamePasswordLoginFailureHandler" />
+	<beans:bean id="sessionAuthenticationStrategy"
+		class="org.springframework.security.web.authentication.session.SessionFixationProtectionStrategy" />
+
+	<beans:bean id="passwordEncoder"
+		class="com.kms.skeleton.security.SHA1PasswordEncoder" />
+
+	<beans:bean id="jwtAuthenticationFilter"
+		class="com.kms.skeleton.security.filter.JWTAuthenticationFilter">
+		<beans:property name="authenticationManager" ref="authenticationManager" />
+		<beans:property name="jwtService" ref="jwtService" />
+	</beans:bean>
+
+	<beans:bean id="authenticatedUserCache"
+		class="com.kms.skeleton.security.cache.AuthenticatedUserCache" />
+	
+	<beans:bean id="jwtService"
+		class="com.kms.skeleton.security.service.JWTService" />
+		
+	<beans:bean id="logoutFilter" class="org.springframework.security.web.authentication.logout.LogoutFilter">
+        <beans:property name="filterProcessesUrl" value="/logout"/>
+        <beans:constructor-arg name="logoutSuccessHandler" ref="logoutSuccessHandler"/>
+        <beans:constructor-arg name="handlers">
+            <beans:list>
+                <beans:ref bean="securityContextLogoutHandler" />
+            </beans:list>
+        </beans:constructor-arg>
+    </beans:bean>
+    <beans:bean id="logoutSuccessHandler" class="com.kms.skeleton.security.handler.LogoutSuccessHandler" />
+ 
+	<beans:bean id="securityContextLogoutHandler" class="org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler"/>	
+
+</beans:beans>
